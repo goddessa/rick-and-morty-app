@@ -19,4 +19,9 @@ const fieldEqualValues =
       ? VALID
       : errorMsg || copy.fieldsAreNotEqual;
 };
-export default { passwordValidate, fieldEqualValues};
+const firebaseErrorMatches = (error: unknown, code: string): boolean => {
+  const message =
+    (error as any)?.message || (error as any)?.toString?.() || "";
+  return message.includes(code);
+};
+export default { passwordValidate, fieldEqualValues, firebaseErrorMatches};
