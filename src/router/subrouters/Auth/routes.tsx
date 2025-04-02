@@ -2,6 +2,7 @@ import { Navigate } from "react-router-dom";
 import { ComplexRoute } from "../../models";
 import Login from "./pages/Login";
 import SignUp from "./pages/SignUp";
+import NotFound from "../../pages/NotFound";
 
 export default [
   {
@@ -17,6 +18,6 @@ export default [
   { index: true, element: <Navigate to="auth/login" /> },
   {
     path: "*",
-    element: () => `not found`,
+    element: <NotFound />,
   },
 ] as Array<ComplexRoute>;

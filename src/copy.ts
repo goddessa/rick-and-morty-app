@@ -81,5 +81,6 @@ export default {
     dimension: 'Dimension:',
     residents: 'Residents:',
     emailAlreadyExists: "This email is already registered",
+    charactersPage: 'Characters page',
   } as const;
   

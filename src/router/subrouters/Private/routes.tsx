@@ -1,12 +1,10 @@
-
-import { Navigate } from 'react-router-dom';
+import { Navigate } from "react-router-dom";
 import { ComplexRoute } from "../../models";
-import CharactersPage from './pages/Characters';
-import EpisodePage from './pages/Episodes';
-import LocationPage from './pages/Location';
-import CharacterDetailsPage from './pages/CharacterDetails';
-
-
+import CharactersPage from "./pages/Characters";
+import EpisodePage from "./pages/Episodes";
+import LocationPage from "./pages/Location";
+import CharacterDetailsPage from "./pages/CharacterDetails";
+import NotFound from "../../pages/NotFound";
 
 export default [
   {
@@ -25,9 +23,9 @@ export default [
     path: 'location/:id',
     element: LocationPage,
   },
-  { index: true, element: <Navigate to="login" /> },
+  { index: true, element: <Navigate to="characters" /> },
   {
-    path: '*',
-    element: () => `not found`,
+    path: "not-found",
+    element: <NotFound />,
   },
 ] as Array<ComplexRoute>;
