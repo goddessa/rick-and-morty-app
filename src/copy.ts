@@ -82,5 +82,6 @@ export default {
     residents: 'Residents:',
     emailAlreadyExists: "This email is already registered",
     charactersPage: 'Characters page',
+    invalidLoginCredentials: 'Invalid credentials.',
   } as const;
   

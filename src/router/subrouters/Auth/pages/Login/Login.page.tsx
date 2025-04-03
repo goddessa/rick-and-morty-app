@@ -1,18 +1,19 @@
 import React, { useContext, useEffect, useState } from "react";
 import { Form } from "react-final-form";
 import { useNavigate } from "react-router-dom";
-import auth from "../../../../../api/auth";
+import AuthContext from "../../providers/Auth/Auth.context";
 import copy from "../../../../../copy";
 import validations from "../../../../../validations";
-import AuthContext from "../../providers/Auth/Auth.context";
 import AuthPageWrapper from "../../components/AuthPageWrapper";
 import InputField from "../../../../../components/InputField";
 import PasswordField from "../../../../../components/PasswordField";
+import FIREBASE_ERRORS from "../../../../../constants/firebaseErrors";
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
-  const { isLoggedIn } = useContext(AuthContext);
+  const { isLoggedIn, login } = useContext(AuthContext);
   const [isLoading, setIsLoading] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isLoggedIn) {
@@ -22,12 +23,35 @@ const Login: React.FC = () => {
 
   const onSubmit = async (values: { email: string; password: string }) => {
     setIsLoading(true);
+    setServerError(null);
+
     try {
-      await auth.login(values.email, values.password);
+      await login(values.email, values.password);
       navigate("/characters");
-    } catch (error) {
-      console.error(error);
-      alert(copy.loginFailed);
+    } catch (error: any) {
+      console.error("Login error full object:", error);
+
+      if (
+        validations.firebaseErrorMatches(
+          error,
+          FIREBASE_ERRORS.INVALID_LOGIN_CREDENTIALS
+        )
+      ) {
+        setServerError(copy.invalidLoginCredentials ?? "Invalid credentials");
+      } else if (
+        validations.firebaseErrorMatches(error, FIREBASE_ERRORS.INVALID_EMAIL)
+      ) {
+        setServerError(copy.invalidEmail ?? "Invalid email");
+      } else if (
+        validations.firebaseErrorMatches(
+          error,
+          FIREBASE_ERRORS.INVALID_CREDENTIAL
+        )
+      ) {
+        setServerError(copy.invalidCredentials);
+      } else {
+        setServerError(copy.loginFailed);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -46,6 +70,12 @@ const Login: React.FC = () => {
             <h1 id="login-form-title" className="sr-only">
               {copy.login}
             </h1>
+
+            {serverError && (
+              <div className="text-red-500 text-sm" role="alert">
+                {serverError}
+              </div>
+            )}
 
             <InputField
               name="email"
