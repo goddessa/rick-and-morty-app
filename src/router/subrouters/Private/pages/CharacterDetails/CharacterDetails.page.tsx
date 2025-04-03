@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { useParams, Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { Character } from "../../../../../models/Character";
 import { Episode } from "../../../../../models/Episode";
 import copy from "../../../../../copy";
@@ -7,44 +8,51 @@ import useRickAndMorty from "../../../../hooks/useRickAndMorty";
 
 const CharacterDetailsPage: React.FC = () => {
   const { id } = useParams();
-  const [character, setCharacter] = useState<Character | null>(null);
-  const [episodes, setEpisodes] = useState<Episode[]>([]);
-  const [loading, setLoading] = useState(true);
-
   const { getCharacterById, getMultipleEpisodes } = useRickAndMorty();
 
-  useEffect(() => {
-    const loadCharacterData = async () => {
-      try {
-        if (!id) return;
+  const {
+    data: character,
+    isPending: characterLoading,
+    error: characterError,
+  } = useQuery<Character>({
+    queryKey: ["character", id],
+    queryFn: () => getCharacterById(id!),
+    enabled: !!id,
+  });
 
-        const char = await getCharacterById(id);
-        setCharacter(char);
+  const episodeIds: (string | number)[] =
+    character?.episode
+      .map((url) => url.split("/").pop())
+      .filter((id): id is string => Boolean(id)) || [];
 
-        const episodeIds = char.episode.map((epUrl: string) =>
-          epUrl.split("/").pop()
-        );
+  const {
+    data: episodesRaw,
+    isPending: episodesLoading,
+    error: episodesError,
+  } = useQuery<Episode[]>({
+    queryKey: ["character-episodes", episodeIds.join(",")],
+    queryFn: () => getMultipleEpisodes(episodeIds),
+    enabled: episodeIds.length > 0,
+  });
 
-        const uniqueEpisodeIds = Array.from(
-          new Set(episodeIds.filter(Boolean))
-        ) as (string | number)[];
+  const episodes = Array.isArray(episodesRaw)
+    ? episodesRaw
+    : episodesRaw
+    ? [episodesRaw]
+    : [];
 
-        const episodesRes = await getMultipleEpisodes(uniqueEpisodeIds);
-        setEpisodes(Array.isArray(episodesRes) ? episodesRes : [episodesRes]);
-      } catch (error) {
-        console.error("Failed to fetch character or episodes", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadCharacterData();
-  }, [id, getCharacterById, getMultipleEpisodes]);
-
-  if (loading || !character) {
+  if (characterLoading || episodesLoading) {
     return (
       <p className="p-6" aria-busy="true" aria-live="polite">
         {copy.loading}
+      </p>
+    );
+  }
+
+  if (characterError || episodesError || !character) {
+    return (
+      <p className="p-6 text-red-500">
+        Greška pri učitavanju karaktera ili epizoda.
       </p>
     );
   }

@@ -1,5 +1,6 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { Episode } from "../../../../../models/Episode";
 import { Character } from "../../../../../models/Character";
 import { ITEMS_PER_PAGE } from "../../utils/constants";
@@ -9,43 +10,48 @@ import useRickAndMorty from "../../../../hooks/useRickAndMorty";
 const EpisodePage: React.FC = () => {
   const { id } = useParams();
   const containerRef = useRef<HTMLDivElement>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [visibleCharacters, setVisibleCharacters] = useState<Character[]>([]);
 
   const { getEpisodeById, getMultipleCharacters } = useRickAndMorty();
 
-  const [episode, setEpisode] = useState<Episode | null>(null);
-  const [characters, setCharacters] = useState<Character[]>([]);
-  const [visibleCharacters, setVisibleCharacters] = useState<Character[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
+  const {
+    data: episode,
+    isPending: episodeLoading,
+    error: episodeError,
+  } = useQuery<Episode>({
+    queryKey: ["episode", id],
+    queryFn: () => getEpisodeById(id!),
+    enabled: !!id,
+  });
+
+  const characterIds: (string | number)[] =
+    episode?.characters
+      .map((url) => url.split("/").pop())
+      .filter((id): id is string => Boolean(id)) || [];
+
+  const {
+    data: charactersRaw,
+    isPending: charactersLoading,
+    error: charactersError,
+  } = useQuery<Character[]>({
+    queryKey: ["characters", characterIds.join(",")],
+    queryFn: () => getMultipleCharacters(characterIds),
+    enabled: characterIds.length > 0,
+  });
+
+  const characters = Array.isArray(charactersRaw)
+    ? charactersRaw
+    : charactersRaw
+    ? [charactersRaw]
+    : [];
 
   useEffect(() => {
-    const loadEpisodeData = async () => {
-      try {
-        if (!id) return;
-
-        const ep = await getEpisodeById(id);
-        setEpisode(ep);
-
-        const characterIds = ep.characters
-          .map((url: string) => url.split("/").pop())
-          .filter(Boolean) as (string | number)[];
-
-        const charactersRes = await getMultipleCharacters(characterIds);
-        const allCharacters = Array.isArray(charactersRes)
-          ? charactersRes
-          : [charactersRes];
-
-        setCharacters(allCharacters);
-        setVisibleCharacters(allCharacters.slice(0, ITEMS_PER_PAGE));
-      } catch (error) {
-        console.error("Error loading episode data", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadEpisodeData();
-  }, [id, getEpisodeById, getMultipleCharacters]);
+    if (characters.length > 0) {
+      setVisibleCharacters(characters.slice(0, ITEMS_PER_PAGE));
+      setCurrentPage(1);
+    }
+  }, [characters]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -66,9 +72,9 @@ const EpisodePage: React.FC = () => {
 
     container.addEventListener("scroll", handleScroll);
     return () => container.removeEventListener("scroll", handleScroll);
-  }, [currentPage, characters, visibleCharacters]);
+  }, [characters, currentPage, visibleCharacters]);
 
-  if (loading || !episode) {
+  if (episodeLoading || charactersLoading) {
     return (
       <p className="p-6" aria-busy="true" aria-live="polite">
         {copy.loading}
@@ -76,6 +82,11 @@ const EpisodePage: React.FC = () => {
     );
   }
 
+  if (episodeError || charactersError) {
+    return <p className="p-6 text-red-500">Greška pri učitavanju podataka.</p>;
+  }
+
+  // 8. Render sadržaja
   return (
     <div
       className="h-screen flex flex-col px-4 sm:px-6 md:px-10 xl:px-20 py-6 overflow-hidden"
@@ -83,15 +94,15 @@ const EpisodePage: React.FC = () => {
       aria-labelledby="episode-title"
     >
       <h1 id="episode-title" className="text-3xl font-bold mb-4">
-        {episode.name}
+        {episode?.name}
       </h1>
 
       <div className="space-y-2 mb-6">
         <p>
-          <strong>{copy.episode}</strong> {episode.episode}
+          <strong>{copy.episode}</strong> {episode?.episode}
         </p>
         <p>
-          <strong>{copy.airDate}</strong> {episode.air_date}
+          <strong>{copy.airDate}</strong> {episode?.air_date}
         </p>
       </div>
 
@@ -118,15 +129,6 @@ const EpisodePage: React.FC = () => {
             <p className="text-sm text-gray-500">{char.status}</p>
           </Link>
         ))}
-        {loading && (
-          <p
-            className="text-center col-span-full"
-            aria-busy="true"
-            aria-live="polite"
-          >
-            {copy.loading}
-          </p>
-        )}
       </div>
     </div>
   );

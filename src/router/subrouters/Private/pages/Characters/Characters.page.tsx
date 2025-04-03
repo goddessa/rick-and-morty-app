@@ -1,34 +1,32 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import copy from "../../../../../copy";
 import SearchInput from "../../../../../components/Search";
-import useInfinitePagination from "../../../../../hooks/useInfinitePagination";
 import { Character } from "../../../../../models/Character";
 import useRickAndMorty from "../../../../hooks/useRickAndMorty";
 
 const CharactersPage: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const { getPaginatedCharacters } = useRickAndMorty();
+  const [searchString, setSearchString] = useState("");
 
-  const {
-    items: characters,
-    loading,
-    onContainerScrolled,
-    searchString,
-    setSearchString,
-  } = useInfinitePagination<Character>(
-    async (page, searchString) => {
-      const response = await getPaginatedCharacters(page, searchString);
-      return {
-        items: response.results,
-        totalPages: response.info.pages,
-      };
-    },
-    [],
-    undefined,
-    [],
-    300
-  );
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
+    useInfiniteQuery({
+      queryKey: ["characters", searchString],
+      queryFn: ({ pageParam = 1 }) =>
+        getPaginatedCharacters(pageParam, searchString),
+      initialPageParam: 1,
+      getNextPageParam: (lastPage) => {
+        const nextUrl = lastPage.info?.next;
+        if (!nextUrl) return undefined;
+        const nextPage = new URL(nextUrl).searchParams.get("page");
+        return nextPage ? parseInt(nextPage, 10) : undefined;
+      },
+    });
+
+  const characters: Character[] =
+    data?.pages.flatMap((page) => page.results) || [];
 
   useEffect(() => {
     const container = containerRef.current;
@@ -39,14 +37,14 @@ const CharactersPage: React.FC = () => {
         container.scrollHeight - container.scrollTop <=
         container.clientHeight + 100;
 
-      if (isBottom) {
-        onContainerScrolled();
+      if (isBottom && hasNextPage && !isFetchingNextPage) {
+        fetchNextPage();
       }
     };
 
     container.addEventListener("scroll", handleScroll);
     return () => container.removeEventListener("scroll", handleScroll);
-  }, [onContainerScrolled]);
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
   return (
     <div className="h-screen overflow-hidden flex flex-col px-4 sm:px-6 md:px-10 xl:px-20 py-6">
@@ -82,7 +80,8 @@ const CharactersPage: React.FC = () => {
             <p className="text-sm text-gray-500">{char.status}</p>
           </Link>
         ))}
-        {loading && (
+
+        {(isLoading || isFetchingNextPage) && (
           <p
             className="text-center col-span-full"
             aria-busy="true"

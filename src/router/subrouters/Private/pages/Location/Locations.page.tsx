@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Location } from "../../../../../models/Location";
+import { useQuery } from "@tanstack/react-query";
 import { Character } from "../../../../../models/Character";
 import { ITEMS_PER_PAGE } from "../../utils/constants";
 import copy from "../../../../../copy";
@@ -9,44 +9,54 @@ import useRickAndMorty from "../../../../hooks/useRickAndMorty";
 const LocationPage: React.FC = () => {
   const { id } = useParams();
   const containerRef = useRef<HTMLDivElement>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [visibleCharacters, setVisibleCharacters] = useState<Character[]>([]);
 
   const { getLocationById, getMultipleCharacters } = useRickAndMorty();
 
-  const [location, setLocation] = useState<Location | null>(null);
-  const [residents, setResidents] = useState<Character[]>([]);
-  const [visibleCharacters, setVisibleCharacters] = useState<Character[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1);
+  // Fetch location
+  const {
+    data: location,
+    isPending: locationLoading,
+    error: locationError,
+  } = useQuery({
+    queryKey: ["location", id],
+    queryFn: () => getLocationById(id!),
+    enabled: !!id,
+  });
 
+  // Extract character IDs from location
+  const characterIds: (string | number)[] =
+    location?.residents
+      .map((url) => url.split("/").pop())
+      .filter((id): id is string => Boolean(id)) || [];
+
+  // Fetch characters
+  const {
+    data: residentsRaw,
+    isPending: charactersLoading,
+    error: charactersError,
+  } = useQuery({
+    queryKey: ["residents", characterIds.join(",")],
+    queryFn: () => getMultipleCharacters(characterIds),
+    enabled: characterIds.length > 0,
+  });
+
+  const residents = Array.isArray(residentsRaw)
+    ? residentsRaw
+    : residentsRaw
+    ? [residentsRaw]
+    : [];
+
+  // Set initial visible characters
   useEffect(() => {
-    const loadLocationData = async () => {
-      try {
-        if (!id) return;
+    if (residents.length > 0) {
+      setVisibleCharacters(residents.slice(0, ITEMS_PER_PAGE));
+      setCurrentPage(1);
+    }
+  }, [residents]);
 
-        const loc = await getLocationById(id);
-        setLocation(loc);
-
-        const characterIds = loc.residents
-          .map((url: string) => url.split("/").pop())
-          .filter(Boolean) as (string | number)[];
-
-        const charactersRes = await getMultipleCharacters(characterIds);
-        const allResidents = Array.isArray(charactersRes)
-          ? charactersRes
-          : [charactersRes];
-
-        setResidents(allResidents);
-        setVisibleCharacters(allResidents.slice(0, ITEMS_PER_PAGE));
-      } catch (error) {
-        console.error(copy.error, error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadLocationData();
-  }, [id, getLocationById, getMultipleCharacters]);
-
+  // Infinite scroll
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -68,10 +78,18 @@ const LocationPage: React.FC = () => {
     return () => container.removeEventListener("scroll", handleScroll);
   }, [currentPage, residents, visibleCharacters]);
 
-  if (loading || !location) {
+  if (locationLoading || charactersLoading) {
     return (
       <p className="p-6" aria-busy="true" aria-live="polite">
         {copy.loading}
+      </p>
+    );
+  }
+
+  if (locationError || charactersError || !location) {
+    return (
+      <p className="p-6 text-red-500">
+        {copy.error || "Greška pri učitavanju lokacije."}
       </p>
     );
   }
@@ -118,7 +136,8 @@ const LocationPage: React.FC = () => {
             <p className="text-sm text-gray-500">{char.status}</p>
           </Link>
         ))}
-        {loading && (
+
+        {(charactersLoading || locationLoading) && (
           <p
             className="text-center col-span-full"
             aria-busy="true"

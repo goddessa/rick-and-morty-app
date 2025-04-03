@@ -30,7 +30,7 @@ const getMultipleCharacters = async (
   ids: Array<number | string>
 ): Promise<Character[]> => {
   const res = await rickAndMortyApi.get(`/character/${ids.join(',')}`);
-  return res.data;
+  return Array.isArray(res.data) ? res.data : [res.data];
 };
 
 // Locations
@@ -58,7 +58,7 @@ const getMultipleEpisodes = async (
   ids: Array<number | string>
 ): Promise<Episode[]> => {
   const res = await rickAndMortyApi.get(`/episode/${ids.join(',')}`);
-  return res.data;
+  return Array.isArray(res.data) ? res.data : [res.data];
 };
 
 const getEpisodes = async (): Promise<Episode[]> => {

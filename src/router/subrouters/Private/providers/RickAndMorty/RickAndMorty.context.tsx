@@ -4,13 +4,6 @@ import { Episode } from "../../../../../models/Episode";
 import { Location } from "../../../../../models/Location";
 
 export type RickAndMortyContextType = {
-  characters: Character[];
-  episodes: Episode[];
-  locations: Location[];
-  loading: boolean;
-  fetchCharacters: () => void;
-  fetchEpisodes: () => void;
-  fetchLocations: () => void;
   getPaginatedCharacters: (page?: number, name?: string) => Promise<any>;
   getEpisodeById: (id: string | number) => Promise<Episode>;
   getCharacterById: (id: string | number) => Promise<Character>;
@@ -20,13 +13,6 @@ export type RickAndMortyContextType = {
 };
 
 const RickAndMortyContext = createContext<RickAndMortyContextType>({
-  characters: [],
-  episodes: [],
-  locations: [],
-  loading: true,
-  fetchCharacters: () => {},
-  fetchEpisodes: () => {},
-  fetchLocations: () => {},
   getPaginatedCharacters: async () => ({}),
   getEpisodeById: async () => ({} as Episode),
   getCharacterById: async () => ({} as Character),
